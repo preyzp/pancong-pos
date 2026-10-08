@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useStore } from "zustand";
 import { AppShell } from "../layout/app-shell";
 import { CancelOrderDialog } from "../order/cancel-order-dialog";
 import { Button } from "../pos/button";
@@ -13,6 +15,7 @@ import {
   type HistoryStatusFilter,
 } from "../../lib/history/filter-orders";
 import type { Order } from "../../types/pos";
+import { orderStore } from "../../store/order-store";
 
 type OrderHistoryScreenProps = {
   initialOrders: Order[];
@@ -26,18 +29,31 @@ const statusFilters: { label: string; value: HistoryStatusFilter }[] = [
 ];
 
 export function OrderHistoryScreen({ initialOrders }: OrderHistoryScreenProps) {
-  const [orders, setOrders] = useState(initialOrders);
+  const router = useRouter();
+  const storedOrders = useStore(orderStore, (state) => state.orders);
+  const ordersInitialized = useStore(
+    orderStore,
+    (state) => state.ordersInitialized,
+  );
+  const orders = ordersInitialized ? storedOrders : initialOrders;
+  const initializeOrders = useStore(
+    orderStore,
+    (state) => state.initializeOrders,
+  );
+  const setOrders = useStore(orderStore, (state) => state.setOrders);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<HistoryStatusFilter>("semua");
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const filteredOrders = filterHistoryOrders(orders, query, status);
 
+  useEffect(() => {
+    initializeOrders(initialOrders);
+  }, [initialOrders, initializeOrders]);
+
   function confirmCancellation() {
     if (!orderToCancel || orderToCancel.status !== "belum_bayar") return;
 
-    setOrders((currentOrders) =>
-      cancelUnpaidOrder(currentOrders, orderToCancel.id),
-    );
+    setOrders(cancelUnpaidOrder(orders, orderToCancel.id));
     setOrderToCancel(null);
   }
 
@@ -48,10 +64,11 @@ export function OrderHistoryScreen({ initialOrders }: OrderHistoryScreenProps) {
           <div className="relative">
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-[38px] size-5 text-gray-400"
+              className="pointer-events-none absolute bottom-3 left-3 size-5 text-gray-400"
               strokeWidth={2}
             />
             <Input
+              className="pl-10"
               label="Cari Pesanan"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Nomor, nama pemesan, atau menu"
@@ -90,7 +107,15 @@ export function OrderHistoryScreen({ initialOrders }: OrderHistoryScreenProps) {
           </p>
         </div>
 
-        <OrderHistoryList onCancel={setOrderToCancel} orders={filteredOrders} />
+        <OrderHistoryList
+          onCancel={setOrderToCancel}
+          onEdit={(order) =>
+            router.push(
+              `/orders/${encodeURIComponent(order.id)}/edit?returnTo=%2Fhistory`,
+            )
+          }
+          orders={filteredOrders}
+        />
       </div>
 
       {orderToCancel ? (

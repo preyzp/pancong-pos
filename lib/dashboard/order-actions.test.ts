@@ -21,4 +21,13 @@ describe("aksi pesanan pada Dashboard", () => {
       "dibatalkan",
     );
   });
+
+  it("tidak membatalkan order yang sudah lunas", () => {
+    const orders = createMockOrders(new Date("2026-10-06T05:00:00.000Z"));
+    const paidOrders = cancelUnpaidOrder(orders, "#011");
+
+    expect(paidOrders.find((order) => order.id === "#011")?.status).toBe(
+      "lunas",
+    );
+  });
 });

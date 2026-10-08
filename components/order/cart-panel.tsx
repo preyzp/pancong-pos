@@ -8,6 +8,9 @@ type CartPanelProps = {
   items: OrderItem[];
   menu: MenuItem[];
   itemsError?: string;
+  submitLabel?: string;
+  onCustomizeItem?: (item: OrderItem) => void;
+  onNoteChange?: (lineKey: string, note: string) => void;
   onQuantityChange: (lineKey: string, quantity: number) => void;
 };
 
@@ -15,7 +18,10 @@ export function CartPanel({
   items,
   itemsError,
   menu,
+  onCustomizeItem,
+  onNoteChange,
   onQuantityChange,
+  submitLabel = "Lanjutkan",
 }: CartPanelProps) {
   const priceSummary = calculatePriceSummary(items, menu);
 
@@ -41,7 +47,8 @@ export function CartPanel({
                 editable
                 item={item}
                 key={getCartLineKey(item.menuId, item.addons)}
-                menuItem={menuItem}
+                onCustomize={onCustomizeItem}
+                onNoteChange={onNoteChange}
                 onQuantityChange={onQuantityChange}
               />
             );
@@ -63,7 +70,7 @@ export function CartPanel({
         <PriceSummary {...priceSummary} />
       </div>
       <Button className="mt-4" fullWidth type="submit">
-        Lanjutkan
+        {submitLabel}
       </Button>
     </section>
   );

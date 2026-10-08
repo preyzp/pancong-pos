@@ -31,31 +31,85 @@ const primaryItems: NavItem[] = [
   { key: "penjualan", label: "Penjualan", href: "/sales", icon: ChartColumn },
 ];
 
-function NavLink({ active, item }: { active: NavKey; item: NavItem }) {
+function NavLink({
+  active,
+  item,
+  mobileBottom = false,
+}: {
+  active: NavKey;
+  item: NavItem;
+  mobileBottom?: boolean;
+}) {
   const Icon = item.icon;
   const isActive = active === item.key;
 
   return (
     <Link
       aria-current={isActive ? "page" : undefined}
-      className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-md px-1 text-gray-600 outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink md:flex-row md:justify-start md:gap-3 md:px-3 ${isActive ? "bg-gray-100 text-ink md:bg-ink md:text-white" : ""}`}
+      className={`flex min-h-11 rounded-md outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink ${
+        mobileBottom
+          ? "flex-col items-center justify-center gap-1 px-1"
+          : "flex-col items-center justify-center gap-1 px-1 text-gray-600 md:flex-row md:justify-start md:gap-3 md:px-3"
+      } ${
+        isActive
+          ? mobileBottom
+            ? "bg-gray-100 text-ink"
+            : "bg-gray-100 text-ink md:bg-ink md:text-white"
+          : "text-gray-600"
+      }`}
       href={item.href}
     >
-      <Icon aria-hidden="true" className="size-5.5 shrink-0" strokeWidth={2} />
-      <span className="text-center text-[9px] leading-tight md:text-sm">
+      <Icon
+        aria-hidden="true"
+        className={`${mobileBottom ? "size-5" : "size-5.5"} shrink-0`}
+        strokeWidth={2}
+      />
+      <span
+        className={
+          mobileBottom
+            ? "text-[10px] leading-tight"
+            : "text-center text-[9px] leading-tight md:text-sm"
+        }
+      >
         {item.label}
       </span>
     </Link>
   );
 }
 
-export function SideNav({ active }: { active: NavKey }) {
+export function SideNav({
+  active,
+  mobileBottom = false,
+}: {
+  active: NavKey;
+  mobileBottom?: boolean;
+}) {
   const mobileItems: NavItem[] = [
     ...primaryItems.map((item) =>
       item.key === "pesanan" ? { ...item, label: "Pesanan" } : item,
     ),
     { key: "akun", label: "Akun", href: "/settings", icon: UserRound },
   ];
+
+  if (mobileBottom) {
+    return (
+      <aside className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
+        <nav
+          aria-label="Navigasi utama"
+          className="grid h-16 grid-cols-5 gap-1 px-2"
+        >
+          {mobileItems.map((item) => (
+            <NavLink
+              active={active}
+              item={item}
+              key={item.key}
+              mobileBottom
+            />
+          ))}
+        </nav>
+      </aside>
+    );
+  }
 
   return (
     <aside className="sticky top-0 h-dvh w-16 shrink-0 border-r border-gray-200 bg-white md:w-60">
@@ -75,11 +129,6 @@ export function SideNav({ active }: { active: NavKey }) {
         </Link>
 
         <nav aria-label="Navigasi utama" className="flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-2 md:hidden">
-            {mobileItems.map((item) => (
-              <NavLink active={active} item={item} key={item.key} />
-            ))}
-          </div>
           <div className="hidden flex-col gap-2 md:flex">
             {primaryItems.map((item) => (
               <NavLink active={active} item={item} key={item.key} />

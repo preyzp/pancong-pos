@@ -1,12 +1,12 @@
-import { OrderReviewScreen } from "@/components/order/order-review-screen";
+import { OrderDetailScreen } from "@/components/order/order-detail-screen";
 
-type OrderReviewPageProps = {
+type OrderDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export default async function OrderReviewPage({
+export default async function OrderDetailPage({
   params,
-}: OrderReviewPageProps) {
+}: OrderDetailPageProps) {
   const { id } = await params;
-  return <OrderReviewScreen orderId={id} />;
+  return <OrderDetailScreen orderId={decodeURIComponent(id)} />;
 }

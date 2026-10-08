@@ -3,26 +3,26 @@ import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import { MOCK_MENU } from "@/data/mock/menu";
 import { createMockOrders } from "@/data/mock/orders";
 
-const DASHBOARD_AS_OF = new Date("2026-10-06T02:25:00.000Z");
-
-const dashboardDate = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  timeZone: "Asia/Jakarta",
-  year: "numeric",
-}).format(DASHBOARD_AS_OF);
+export const dynamic = "force-dynamic";
 
 export default function Home() {
-  const orders = createMockOrders(DASHBOARD_AS_OF);
+  const dashboardAsOf = new Date();
+  const dashboardDate = new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+  }).format(dashboardAsOf);
+  const orders = createMockOrders(dashboardAsOf);
 
   return (
     <AppShell
       active="beranda"
       title="Beranda"
-      subtitle={`Ringkasan hari ini · ${dashboardDate}`}
     >
       <DashboardContent
-        asOf={DASHBOARD_AS_OF.toISOString()}
+        asOf={dashboardAsOf.toISOString()}
+        dashboardDate={dashboardDate}
         initialOrders={orders}
         menu={MOCK_MENU}
       />

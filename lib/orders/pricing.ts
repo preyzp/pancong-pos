@@ -23,6 +23,14 @@ export function calculateLineSubtotal(
   return (menuItem.price + addonUnitPrice) * quantity;
 }
 
+export function calculateOrderItemSubtotal(item: OrderItem): number {
+  const addonUnitPrice = item.addons.reduce(
+    (total, addon) => total + addon.price,
+    0,
+  );
+  return (item.unitPrice + addonUnitPrice) * item.qty;
+}
+
 export function calculateCartSubtotal(
   items: OrderItem[],
   menu: MenuItem[],
@@ -34,7 +42,7 @@ export function calculateCartSubtotal(
       throw new Error(`Menu item tidak ditemukan: ${item.menuId}`);
     }
 
-    return total + calculateLineSubtotal(menuItem, item.qty, item.addons);
+    return total + calculateOrderItemSubtotal(item);
   }, 0);
 }
 

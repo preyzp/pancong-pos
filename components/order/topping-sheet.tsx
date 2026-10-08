@@ -9,9 +9,12 @@ import { calculateLineSubtotal } from "@/lib/orders/pricing";
 
 type ToppingSheetProps = {
   menuItem: MenuItem;
+  initialAddons?: Addon[];
+  initialQuantity?: number;
   toppings: Topping[];
   onAdd: (menuItem: MenuItem, quantity: number, addons: Addon[]) => void;
   onClose: () => void;
+  submitLabel?: string;
 };
 
 const rupiahFormatter = new Intl.NumberFormat("id-ID", {
@@ -20,12 +23,23 @@ const rupiahFormatter = new Intl.NumberFormat("id-ID", {
 
 export function ToppingSheet({
   menuItem,
+  initialAddons = [],
+  initialQuantity = 1,
   onAdd,
   onClose,
+  submitLabel = "Tambah ke Pesanan",
   toppings,
 }: ToppingSheetProps) {
-  const [quantity, setQuantity] = useState(1);
-  const [selectedToppingIds, setSelectedToppingIds] = useState<string[]>([]);
+  const [quantity, setQuantity] = useState(initialQuantity);
+  const [selectedToppingIds, setSelectedToppingIds] = useState<string[]>(() =>
+    toppings
+      .filter((topping) =>
+        initialAddons.some(
+          (addon) => addon.name === topping.name && addon.price === topping.price,
+        ),
+      )
+      .map((topping) => topping.id),
+  );
   const selectedAddons = toppings
     .filter((topping) => selectedToppingIds.includes(topping.id))
     .map(({ name, price }) => ({ name, price }));
@@ -121,7 +135,7 @@ export function ToppingSheet({
             onClose();
           }}
         >
-          Tambah ke Pesanan
+          {submitLabel}
         </Button>
       </section>
     </div>

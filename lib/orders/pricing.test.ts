@@ -25,7 +25,7 @@ describe("pricing pesanan", () => {
     expect(calculateLineSubtotal(pancongCoklat, 2, [extraKeju])).toBe(22000);
   });
 
-  it("menghitung subtotal keranjang menggunakan harga dari data menu", () => {
+  it("menghitung subtotal keranjang menggunakan snapshot harga item", () => {
     expect(
       calculateCartSubtotal(
         [
@@ -33,13 +33,27 @@ describe("pricing pesanan", () => {
             menuId: pancongCoklat.id,
             name: pancongCoklat.name,
             category: pancongCoklat.category,
-            unitPrice: 1,
+            unitPrice: 8000,
             qty: 2,
             addons: [extraKeju],
           },
         ],
-        [pancongCoklat],
+        [{ ...pancongCoklat, price: 10000 }],
       ),
     ).toBe(22000);
+  });
+
+  it("menghitung total dari unit price snapshot tanpa mengubahnya saat harga menu berubah", () => {
+    const orderItem = {
+      menuId: pancongCoklat.id,
+      name: pancongCoklat.name,
+      category: pancongCoklat.category,
+      unitPrice: 8000,
+      qty: 2,
+      addons: [extraKeju],
+    };
+
+    expect(calculateCartSubtotal([orderItem], [{ ...pancongCoklat, price: 10000 }]))
+      .toBe(22000);
   });
 });

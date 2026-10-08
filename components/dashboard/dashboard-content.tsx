@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useStore } from "zustand";
 import {
   ChartColumn,
   CircleAlert,
@@ -22,9 +23,12 @@ import {
   getRecentOrdersToday,
 } from "@/lib/dashboard/metrics";
 import { cancelUnpaidOrder } from "@/lib/dashboard/order-actions";
+import { orderStore } from "@/store/order-store";
+import { menuStore } from "@/store/menu-store";
 
 type DashboardContentProps = {
   asOf: string;
+  dashboardDate: string;
   initialOrders: Order[];
   menu: MenuItem[];
 };
@@ -63,7 +67,7 @@ function MetricCard({ icon: Icon, label, tone, value }: MetricCardProps) {
         <h2 className="min-w-0">{label}</h2>
       </div>
       <p
-        className={`mt-3 break-words text-[22px] font-semibold leading-tight ${toneClass}`}
+        className={`mt-3 wrap-break-word text-[22px] font-semibold leading-tight ${toneClass}`}
       >
         {value}
       </p>
@@ -96,15 +100,41 @@ function formatRelativeTime(createdAt: string, asOf: Date): string {
 
 export function DashboardContent({
   asOf,
+  dashboardDate,
   initialOrders,
   menu,
 }: DashboardContentProps) {
-  const [orders, setOrders] = useState(initialOrders);
+  const storedOrders = useStore(orderStore, (state) => state.orders);
+  const ordersInitialized = useStore(
+    orderStore,
+    (state) => state.ordersInitialized,
+  );
+  const orders = ordersInitialized ? storedOrders : initialOrders;
+  const currentMenu = useStore(menuStore, (state) => state.items);
+  const initializeMenu = useStore(menuStore, (state) => state.initialize);
+  const initializeOrders = useStore(
+    orderStore,
+    (state) => state.initializeOrders,
+  );
+  const setOrders = useStore(orderStore, (state) => state.setOrders);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const referenceTime = new Date(asOf);
   const kpis = calculateDashboardKpis(orders, referenceTime);
-  const bestSellers = calculateBestSellersToday(orders, menu, referenceTime);
+  const bestSellers = calculateBestSellersToday(
+    orders,
+    currentMenu.length > 0 ? currentMenu : menu,
+    referenceTime,
+  );
   const recentOrders = getRecentOrdersToday(orders, referenceTime);
+
+  useEffect(() => {
+    initializeOrders(initialOrders);
+  }, [initialOrders, initializeOrders]);
+
+  useEffect(() => {
+    initializeMenu(menu);
+  }, [initializeMenu, menu]);
+
   const metrics: MetricCardProps[] = [
     {
       label: "Penjualan Hari Ini",
@@ -137,25 +167,33 @@ export function DashboardContent({
       return;
     }
 
-    setOrders((currentOrders) =>
-      cancelUnpaidOrder(currentOrders, orderToCancel.id),
-    );
+    setOrders(cancelUnpaidOrder(orders, orderToCancel.id));
     setOrderToCancel(null);
   }
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <section
-        aria-label="Ringkasan hari ini"
-        className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-5"
-      >
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 text-xs text-gray-600 md:text-sm">
+          Ringkasan hari ini · {dashboardDate}
+        </p>
+        <Link
+          className="hidden h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-ink bg-ink px-4 text-sm font-medium text-white outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink md:inline-flex md:min-w-44"
+          href="/orders/new"
+        >
+          <Plus aria-hidden="true" size={20} strokeWidth={2} />
+          Pesanan Baru
+        </Link>
+      </div>
+
+      <section aria-label="Ringkasan hari ini" className="grid gap-3 md:gap-4">
         <article className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 md:hidden">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-sm font-medium text-gray-600">
                 Penjualan Hari Ini
               </h2>
-              <p className="mt-2 break-words text-[28px] font-semibold leading-tight text-ink md:text-[32px]">
+              <p className="mt-2 wrap-break-word text-[28px] font-semibold leading-tight text-ink md:text-[32px]">
                 {formatRupiah(kpis.salesToday)}
               </p>
             </div>
@@ -171,19 +209,19 @@ export function DashboardContent({
           </p>
         </article>
 
-        <div className="hidden grid-cols-2 gap-3 md:grid xl:grid-cols-4">
-          {metrics.map((metric) => (
-            <MetricCard key={metric.label} {...metric} />
-          ))}
-        </div>
-
         <Link
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-ink bg-ink px-4 text-sm font-medium text-white outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink lg:w-auto lg:min-w-44"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-ink bg-ink px-4 text-sm font-medium text-white outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink md:hidden"
           href="/orders/new"
         >
           <Plus aria-hidden="true" size={20} strokeWidth={2} />
           Pesanan Baru
         </Link>
+
+        <div className="hidden w-full grid-cols-2 gap-3 md:grid xl:grid-cols-4">
+          {metrics.map((metric) => (
+            <MetricCard key={metric.label} {...metric} />
+          ))}
+        </div>
       </section>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,1fr)] lg:gap-5">
@@ -216,8 +254,22 @@ export function DashboardContent({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="break-words text-sm font-semibold leading-5 text-ink">
-                        Pesanan {order.id} · {order.customerName}
+                      <h3 className="wrap-break-word text-sm font-semibold leading-5 text-ink">
+                        <Link
+                          aria-label={`Lihat detail pesanan ${order.id} atas nama ${order.customerName}`}
+                          className="inline-flex max-w-full items-center gap-1 outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink"
+                          href={`/orders/${encodeURIComponent(order.id)}`}
+                        >
+                          <span className="wrap-break-word">
+                            Pesanan {order.id} · {order.customerName}
+                          </span>
+                          <ChevronRight
+                            aria-hidden="true"
+                            className="shrink-0"
+                            size={18}
+                            strokeWidth={2}
+                          />
+                        </Link>
                       </h3>
                       <p className="mt-0.5 text-xs text-gray-400">
                         {formatRelativeTime(order.createdAt, referenceTime)}
@@ -230,7 +282,7 @@ export function DashboardContent({
                       <Badge status={order.status} />
                     </div>
                   </div>
-                  <p className="mt-1 break-words text-xs leading-5 text-gray-600">
+                  <p className="mt-1 wrap-break-word text-xs leading-5 text-gray-600">
                     {order.items
                       .map((item) => `${item.qty} ${item.name}`)
                       .join(" · ")}
@@ -238,15 +290,13 @@ export function DashboardContent({
 
                   {order.status === "belum_bayar" ? (
                     <div className="mt-2 flex gap-2">
-                      <Button
-                        className="min-w-0 flex-1 px-2 text-xs sm:flex-none sm:px-4 sm:text-sm"
-                        disabled
-                        title="Fitur edit pesanan belum tersedia."
-                        variant="secondary"
+                      <Link
+                        className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-2 text-xs font-medium text-ink outline-offset-2 focus-visible:outline-2 focus-visible:outline-ink sm:flex-none sm:px-4 sm:text-sm"
+                        href={`/orders/${encodeURIComponent(order.id)}/edit?returnTo=%2F`}
                       >
                         <Pencil aria-hidden="true" size={16} strokeWidth={2} />
                         Edit
-                      </Button>
+                      </Link>
                       <Button
                         className="min-w-0 flex-1 px-2 text-xs text-error sm:flex-none sm:px-4 sm:text-sm"
                         onClick={() => setOrderToCancel(order)}
@@ -292,7 +342,7 @@ export function DashboardContent({
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
                       {index + 1}
                     </span>
-                    <span className="break-words text-sm font-medium text-ink">
+                    <span className="wrap-break-word text-sm font-medium text-ink">
                       {item.name}
                     </span>
                   </div>

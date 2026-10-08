@@ -97,11 +97,11 @@ Semua komponen diberi prefix `POS/` agar terisolasi dari design system lain.
 | `POS/Icon Button`      | 40×40, radius 8, border `gray-200`. Varian solid (quick-add `+`) & outline.                                                                         |
 | `POS/Input`            | Bg putih, border `gray-200`, radius 8, padding 12–14. Label 12 `gray-600` di atas.                                                                  |
 | `POS/Search`           | Input dengan ikon `search` 20 + placeholder.                                                                                                        |
-| `POS/Side Nav`         | Navigasi rail kiri. Varian `Active = Beranda / Pesanan / Riwayat / Penjualan / Akun`. (Menggantikan `POS/Bottom Navigation` yang sudah deprecated.) |
+| `POS/Side Nav`         | Navigasi responsif. Desktop memakai sidebar; mobile memakai bottom navigation tetap dengan lima tujuan utama. Varian `Active = Beranda / Pesanan / Riwayat / Penjualan / Akun`. |
 | `POS/Badge`            | Varian **Neutral** (`gray-100`/`gray-600`), **Success** (Lunas), **Error** (Belum Bayar), **Dibatalkan** (gray). Pill, teks 11 Medium.              |
 | `POS/Menu Item`        | Baris menu: nama + harga + aksi.                                                                                                                    |
 | `POS/Quantity Stepper` | `[−] qty [+]`, tombol 28–36px radius 6.                                                                                                             |
-| `POS/Order Item`       | Baris item pesanan: nama, `harga × qty`, subtotal baris.                                                                                            |
+| `POS/Order Item`       | Baris item pesanan: nama, `harga × qty`, subtotal baris, add-on, dan catatan opsional per item (maks. 200 karakter).                               |
 | `POS/Price Summary`    | Subtotal + Total.                                                                                                                                   |
 | `POS/Order Card`       | Kartu ringkas pesanan: `No. Pesanan · Nama` + waktu + item + total + badge status.                                                                  |
 
@@ -124,9 +124,9 @@ Semua komponen diberi prefix `POS/` agar terisolasi dari design system lain.
 
 - **Status bar**: tinggi 44 (`9:41` kiri, `5G 100%` kanan).
 - **Header**: tinggi 52 — tombol back (`arrow-left` 24) + judul (20 Semi Bold). Layar utama tidak memakai back.
-- **Side Nav (rail kiri)**: lebar **64**, dari bawah status bar sampai bawah layar. Berisi brand "P" + item: Beranda, Pesanan, Riwayat, Penjualan, Akun (ikon 22 + label 9). Item aktif: bg `gray-100`, ikon/teks `ink`; non-aktif: `gray-400/600`. _(Mengganti bottom nav agar pola sama dengan web.)_
-- **Konten**: di kanan rail. Lebar konten efektif ± 286 (390 − rail 64 − padding), kartu/baris pakai `layoutAlign: stretch`.
-- Layar sub (New Order, Payment, dll.) memakai **back button**, tanpa rail.
+- **Bottom Navigation**: tinggi 64 + safe-area, fixed di bawah layar. Berisi Beranda, Pesanan, Riwayat, Penjualan, Akun (ikon + label ringkas). Item aktif memakai bg `gray-100`, ikon/teks `ink`; konten memberi padding bawah agar tidak tertutup.
+- **Konten**: memenuhi lebar layar di bawah header; kartu/baris memakai `layoutAlign: stretch`.
+- Layar sub (New Order, Payment, dll.) memakai **back button**.
 
 ## 6. Layout — Web (1280 × 832)
 
@@ -144,7 +144,7 @@ Dikelompokkan per alur (sama untuk mobile & web; web menata ulang jadi layout de
 **Alur Pesanan**
 
 - Beranda / Dashboard — KPI (Penjualan hari ini, Pesanan, Lunas, Belum Bayar), Pesanan Terbaru, Menu Terlaris.
-- Pesanan Baru — daftar menu (kategori Pancong & Ketan Susu) + keranjang. Tiap item: `+` quick-add & ikon kustomisasi (buka sheet topping). Ada field **Nama Pemesan**.
+- Pesanan Baru — daftar menu (kategori Pancong & Ketan Susu) + keranjang. Tiap item di keranjang dapat langsung diedit untuk mengubah topping dan jumlah tanpa kembali ke daftar menu; sheet topping juga mempertahankan add-on dan jumlah yang sudah dipilih. Catatan per item opsional. Ada field **Nama Pemesan**.
 - Sheet Topping (Pancong / Ketan Susu) — pilih add-on (rasa sudah ditentukan dari item menu), qty, "Tambah ke Pesanan". _(Modal di web.)_
 - Order Detail — nama pemesan, item, subtotal/total, aksi Edit / Batalkan / Bayar.
 - Edit Pesanan — ubah qty/item + "Batalkan Pesanan" (destruktif, beda dari "Batal" = batal edit).
@@ -229,7 +229,7 @@ Order {
   cashier: string
   createdAt: datetime
 }
-OrderItem { menuId, name, category, unitPrice, qty, addons: Addon[] }
+OrderItem { menuId, name, category, unitPrice, qty, addons: Addon[], note?: string }
 Addon { name, price }
 MenuItem { id, name, category: "pancong"|"ketan_susu", price, hasToppings }
 Topping { id, name, price }

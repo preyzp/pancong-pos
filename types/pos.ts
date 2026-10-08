@@ -16,6 +16,7 @@ export type OrderItem = {
   unitPrice: number;
   qty: number;
   addons: Addon[];
+  note?: string;
 };
 
 export type Order = {
@@ -26,6 +27,7 @@ export type Order = {
   total: number;
   status: OrderStatus;
   paymentMethod?: PaymentMethod;
+  paidAt?: string;
   cashReceived?: number;
   change?: number;
   cashier: string;
@@ -38,6 +40,7 @@ export type MenuItem = {
   category: MenuCategory;
   price: number;
   hasToppings: boolean;
+  active?: boolean;
 };
 
 export type Topping = {
