@@ -27,13 +27,13 @@ describe("validasi draft pesanan", () => {
       addons: [],
     };
     expect(validateDraftOrder("Andi", [item], MOCK_MENU).items).toBe(
-      "Kuantitas, add-on, atau menu pada pesanan tidak valid.",
+      "Kuantitas, Add-on, atau menu pada pesanan tidak valid.",
     );
     expect(
       validateDraftOrder("Andi", [item], [
         { ...MOCK_MENU[0], id: item.menuId, price: 0 },
       ]).items,
-    ).toBe("Kuantitas, add-on, atau menu pada pesanan tidak valid.");
+    ).toBe("Kuantitas, Add-on, atau menu pada pesanan tidak valid.");
 
     expect(
       validateDraftOrder(

@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import type {
-  Addon,
+  OrderItemAddon,
   MenuItem,
   Order,
   OrderItem,
@@ -27,7 +27,7 @@ export type OrderDraftState = {
   ordersInitialized: boolean;
   persistenceError: string | null;
   setCustomerName: (customerName: string) => void;
-  addItem: (menuItem: MenuItem, quantity: number, addons?: Addon[]) => void;
+  addItem: (menuItem: MenuItem, quantity: number, addons?: OrderItemAddon[]) => void;
   setItemNote: (lineKey: string, note: string) => void;
   setItemQuantity: (lineKey: string, quantity: number) => void;
   setDraftId: (draftId: string) => void;
@@ -42,6 +42,8 @@ export type OrderDraftState = {
     orderId: string,
     paymentMethod: PaymentMethod,
     paidAt?: Date,
+    cashReceived?: number,
+    qrisVerified?: boolean,
   ) => boolean;
   clearDraft: () => void;
 };
@@ -120,7 +122,7 @@ export function createOrderStore(persistence: OrderPersistence = orderPersistenc
           return state;
         }
 
-        const expectedSummary = calculatePriceSummary(updatedOrder.items, menu);
+        const expectedSummary = calculatePriceSummary(updatedOrder.items);
         if (
           updatedOrder.subtotal !== expectedSummary.subtotal ||
           updatedOrder.total !== expectedSummary.total
@@ -150,8 +152,16 @@ export function createOrderStore(persistence: OrderPersistence = orderPersistenc
 
       return didUpdate;
     },
-    markOrderPaid: (orderId, paymentMethod, paidAt = new Date()) => {
+    markOrderPaid: (
+      orderId,
+      paymentMethod,
+      paidAt = new Date(),
+      cashReceived,
+      qrisVerified,
+    ) => {
       if (paymentMethod !== "tunai" && paymentMethod !== "qris") return false;
+      if (paymentMethod === "qris" && qrisVerified === false) return false;
+      if (paymentMethod === "qris" && cashReceived !== undefined) return false;
 
       let didUpdate = false;
       set((state) => {
@@ -161,6 +171,13 @@ export function createOrderStore(persistence: OrderPersistence = orderPersistenc
           (order) => order.id === orderId,
         );
         if (!currentOrder || currentOrder.status !== "belum_bayar") {
+          return state;
+        }
+        if (
+          cashReceived !== undefined &&
+          (!Number.isSafeInteger(cashReceived) ||
+            cashReceived < currentOrder.total)
+        ) {
           return state;
         }
 
@@ -173,6 +190,9 @@ export function createOrderStore(persistence: OrderPersistence = orderPersistenc
                   status: "lunas",
                   paymentMethod,
                   paidAt: paidAt.toISOString(),
+                  ...(cashReceived !== undefined
+                    ? { cashReceived, change: cashReceived - order.total }
+                    : {}),
                 }
               : order,
           ),

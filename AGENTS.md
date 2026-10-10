@@ -12,7 +12,7 @@ Jika ada `CLAUDE.md`, isinya mengacu ke file ini.
 ## Tentang Proyek
 
 Pancong POS adalah aplikasi **Point of Sale** untuk warung Pancong & Ketan Susu
-(contoh: "Pancong Pak Budi"). Dipakai kasir untuk: membuat pesanan, menambah topping/add-on,
+(contoh: "Pancong Pak Budi"). Dipakai kasir untuk: membuat pesanan, menambah Add-on,
 menerima pembayaran (Tunai/QRIS), mencetak struk, melihat riwayat & penjualan, serta mengelola menu.
 
 Target platform: **mobile (390×844)** dan **web/desktop (1280×832)** dengan bahasa visual yang sama.
@@ -31,7 +31,15 @@ Desain Figma: file `FD7RnYWy30GN7HjriUjzCA`, page **"Pancong - Personal Project"
   shadcn apa adanya — sesuaikan ke token (radius, warna, tinggi 44px, dll.).
 - **Ikon:** **Lucide React** (`lucide-react`) — outline, `strokeWidth={2}`, ukuran 16/20/24.
 - **Font:** **Inter** via `next/font` (Google Fonts), weight 400/500/600 saja.
-- **State:** Zustand — digunakan untuk cart/order state dan UI state yang perlu dibagi antar screen.
+- **Database:** **MongoDB** sebagai penyimpanan persisten, hanya diakses dari server.
+- **State:** Zustand hanya untuk state UI dan draft sementara yang sesuai. Data pesanan, menu,
+  pengguna, tenant, dan pengaturan persisten bersumber dari server/database, bukan Zustand atau browser.
+- **Authentication:** Login sederhana dengan session server yang aman; pemeriksaan autentikasi dan
+  role dilakukan di server.
+
+Fondasi MongoDB/configuration tidak berarti alur aplikasi sudah berpindah dari localStorage atau
+Zustand. Sampai halaman dan operasi data dimigrasikan serta session terverifikasi tersedia, jangan
+mengklaim tenant isolation telah ditegakkan untuk penggunaan aplikasi.
 
 ### Pemetaan shadcn/ui → komponen `POS/*`
 
@@ -42,9 +50,40 @@ Desain Figma: file `FD7RnYWy30GN7HjriUjzCA`, page **"Pancong - Personal Project"
 | `POS/Input` / `POS/Search` | `input`                           | Border `gray-200`, radius 8; Search + ikon `Search`                                  |
 | `POS/Badge`                | `badge`                           | Varian Neutral/Success/Error/Dibatalkan → token status; bentuk pill                  |
 | `POS/Side Nav`             | custom (pakai `button`/`link`)    | Rail 64 (mobile) / sidebar 240 (web)                                                 |
-| Sheet Topping              | `sheet` (mobile) / `dialog` (web) | Backdrop gelap di web                                                                |
+| Sheet Add-on               | `sheet` (mobile) / `dialog` (web) | Backdrop gelap di web                                                                |
 | Dialog Batalkan            | `alert-dialog`                    | Wajib konfirmasi sebelum void                                                        |
 | Filter Riwayat             | `tabs` / chip custom              | Semua/Lunas/Belum Bayar/Dibatalkan                                                   |
+
+### Arsitektur data & keamanan (WAJIB)
+
+- MongoDB hanya diakses melalui modul data-access server-only. Jangan mengimpor driver, koneksi,
+  maupun kredensial database ke Client Component atau mengirimkannya ke browser.
+- `tenantId` hanya berasal dari session yang telah diverifikasi di server. Jangan menerima atau
+  mempercayai `tenantId` dari body, query string, parameter route, header yang dikendalikan client,
+  atau state UI.
+- **Setiap** query, agregasi, dan mutasi data tenant harus dibatasi dengan `tenantId` dari session,
+  termasuk pencarian berdasarkan ID, update, delete, laporan, dan pemeriksaan status pembayaran.
+- Setiap Route Handler, Server Action, dan operasi DAL wajib memvalidasi session serta role di server.
+  Validasi UI atau proteksi navigasi saja bukan kontrol akses. `owner` mengelola pengaturan, menu,
+  dan akun kasir; `cashier` menjalankan operasional POS sesuai izin yang ditegakkan server.
+- Sebelum setiap operasi data, server wajib memeriksa autentikasi, otorisasi untuk aksi/resource,
+  dan tenant dari session terverifikasi. Jika salah satu pemeriksaan gagal, tolak operasi; jangan
+  mengandalkan filter UI atau ID yang dikirim client sebagai pengganti pemeriksaan tersebut.
+- Password tidak boleh disimpan dalam bentuk plaintext; gunakan password hashing yang sesuai.
+  Session harus berumur terbatas, dapat dicabut, dan dikirim melalui cookie `HttpOnly`, `Secure` di
+  produksi, dan `SameSite` yang sesuai. Jangan menyimpan token session di localStorage.
+- Kredensial MongoDB, rahasia session, dan kredensial bootstrap hanya berada di secret store /
+  environment server. Jangan gunakan variabel `NEXT_PUBLIC_*` untuk secret.
+- Konfigurasi koneksi server menggunakan `MONGODB_URI` dan `MONGODB_DB`. `.env.local` harus tetap
+  diabaikan Git; `.env.example` hanya boleh berisi nilai contoh lokal tanpa kredensial.
+- Migrasi dari localStorage bersifat **non-destruktif**: pertahankan sumber lokal sampai data impor
+  divalidasi, dicadangkan, dan diverifikasi; laporkan konflik atau data invalid, jangan diam-diam
+  mengganti dengan seed/default.
+- Perubahan data pesanan/pembayaran harus atomik terhadap tenant dan status terkini untuk mencegah
+  pembayaran ganda. Pertahankan snapshot harga dan metadata pembayaran historis.
+- QRIS tetap merupakan konfirmasi manual kasir berdasarkan verifikasi pada aplikasi merchant/bukti
+  transaksi. Jangan menyatakan QRIS terhubung ke payment gateway sampai integrasi tersebut benar-benar
+  dibuat dan diverifikasi.
 
 ### Perintah umum
 
@@ -90,11 +129,17 @@ Ringkasan; detail token & komponen di [`DESIGN_SPEC.md`](./DESIGN_SPEC.md).
   hanya untuk `belum_bayar`.
 - **Batalkan selalu lewat dialog konfirmasi** sebelum status berubah ke `dibatalkan`.
 - Di Edit Pesanan: "Batal" = batal mengedit (kembali); "**Batalkan Pesanan**" (merah) = void pesanan.
-- **Rasa Pancong = item menu terpisah** (Original/Coklat/Strawberry/Keju). Sheet topping hanya mengatur
-  **add-on**, bukan rasa.
+- **Rasa Pancong = item menu terpisah** (Original/Coklat/Strawberry/Keju). Sheet Add-on hanya mengatur
+  Add-on, bukan rasa.
+- **Add-on adalah satu-satunya master tambahan** (contoh: Keju, Meses, Oreo, Milo, Susu ekstra). Jangan
+  membuat master/istilah "topping" terpisah. Menu menentukan Add-on yang tersedia (`addonIds`); hanya
+  Add-on aktif yang dapat dipilih untuk pesanan baru; pesanan menyimpan snapshot
+  `{ addonId, name, price, qty }` agar histori tidak berubah. Detail: `DESIGN_SPEC.md` §10.
 - **Nama pemesan** ada di setiap pesanan, diinput di Pesanan Baru, tampil **di sebelah nomor pesanan**
   ("Pesanan #012 · Andi") dan di Order Detail/Struk.
-- Metode bayar: **Tunai** (uang diterima → kembalian) & **QRIS** (tampilkan QR).
+- Metode bayar: **Tunai** (uang diterima → kembalian) & **QRIS** (kasir memverifikasi transaksi secara manual).
+- **QRIS saat ini dikonfirmasi manual oleh kasir.** Tidak ada payment gateway atau verifikasi otomatis;
+  UI dan laporan tidak boleh mengklaim sebaliknya.
 - **Konsistensi angka itu aturan keras.** Harga kanonik ada di `DESIGN_SPEC.md` §9. Untuk setiap pesanan:
   `item × qty = subtotal baris`, dan angka yang sama harus muncul identik di **listing, Order Detail,
   Payment, dan Struk**. Agregat di Penjualan (per-menu) **harus menjumlah ≤ Total Penjualan**.
@@ -104,8 +149,8 @@ Ringkasan; detail token & komponen di [`DESIGN_SPEC.md`](./DESIGN_SPEC.md).
 
 ## Struktur Layar
 
-Lihat `DESIGN_SPEC.md` §7 untuk daftar lengkap. Ringkas: Login · Beranda · Pesanan Baru (+ Sheet Topping) ·
-Order Detail · Edit Pesanan · Payment · QRIS · Pembayaran Berhasil · Struk · Riwayat
+Lihat `DESIGN_SPEC.md` §7 untuk daftar lengkap. Ringkas: Login · Beranda · Pesanan Baru (+ Sheet Add-on) ·
+Order Detail · Edit Pesanan · Payment · Konfirmasi QRIS manual · Pembayaran Berhasil · Struk · Riwayat
 (filter: Semua/Lunas/Belum Bayar/Dibatalkan) · Penjualan · Pengaturan (+ Edit Profil, Menu & Harga,
 Metode Pembayaran, Struk/Printer, Tentang) · Dialog Batalkan · Empty states.
 
@@ -137,6 +182,10 @@ Mapping layar → route dan `POS/*` → komponen kode ada di `DESIGN_SPEC.md` §
    - [ ] Badge status benar sesuai `status` pesanan.
    - [ ] **Angka konsisten** antar layar (listing = detail = payment = struk).
    - [ ] Edit/Batalkan hanya pada `belum_bayar`, Batalkan ada dialog konfirmasi.
+   - [ ] Test membuktikan akses/query/mutasi tenant terisolasi dan tenant tidak dapat membaca atau
+     mengubah data tenant lain.
+   - [ ] Test regresi pembayaran mencakup validitas Tunai/kembalian, konfirmasi QRIS manual,
+     pencatatan metode/metadata, dan pencegahan pembayaran ganda.
    - [ ] `lint` dan `test` lulus.
 
 ---
@@ -147,5 +196,5 @@ Mapping layar → route dan `POS/*` → komponen kode ada di `DESIGN_SPEC.md` §
 - ❌ Memakai bottom navigation.
 - ❌ Mengizinkan edit/batal pada pesanan `lunas`.
 - ❌ Membatalkan pesanan tanpa dialog konfirmasi.
-- ❌ Menaruh "rasa" di sheet topping (rasa = item menu).
+- ❌ Menaruh "rasa" di sheet Add-on (rasa = item menu).
 - ❌ Membiarkan angka yang sama berbeda antar layar.

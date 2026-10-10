@@ -27,14 +27,18 @@ export function validateDraftOrder(
         !Number.isFinite(item.unitPrice) ||
         item.unitPrice < 0 ||
         item.addons.some(
-          (addon) => !Number.isFinite(addon.price) || addon.price < 0,
+          (addon) =>
+            !Number.isFinite(addon.price) ||
+            addon.price < 0 ||
+            (addon.qty !== undefined &&
+              (!Number.isSafeInteger(addon.qty) || addon.qty <= 0)),
         ) ||
         !menu.some((menuItem) => menuItem.id === item.menuId),
     )
   ) {
-    errors.items = "Kuantitas, add-on, atau menu pada pesanan tidak valid.";
+    errors.items = "Kuantitas, Add-on, atau menu pada pesanan tidak valid.";
   } else {
-    const { total } = calculatePriceSummary(items, menu);
+    const { total } = calculatePriceSummary(items);
     if (!Number.isFinite(total) || total <= 0) {
       errors.items = "Total pesanan harus lebih dari Rp 0.";
     }

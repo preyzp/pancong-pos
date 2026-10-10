@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MOCK_MENU } from "../../data/mock/menu";
+import {
+  DEFAULT_MENU_CATEGORIES,
+  MOCK_MENU,
+} from "../../data/mock/menu";
 import { createMenuPersistence } from "./menu-persistence";
 
 function createMemoryStorage() {
@@ -27,16 +30,70 @@ describe("persistensi menu", () => {
         ? { ...item, price: 12000, active: false }
         : item,
     );
+    const data = {
+      categories: [
+        ...DEFAULT_MENU_CATEGORIES,
+        { id: "minuman", name: "Minuman" },
+      ],
+      items: [
+        ...updatedMenu,
+        {
+          id: "es-teh",
+          name: "Es Teh",
+          category: "minuman",
+          price: 5000,
+          addonIds: [],
+        },
+      ],
+    };
 
-    persistence.save(updatedMenu);
+    persistence.save(data);
 
-    expect(persistence.load()).toEqual(updatedMenu);
+    expect(persistence.load()).toEqual(data);
     expect(JSON.parse(storage.getItem("pancong-pos/menu") ?? "{}").version).toBe(
-      1,
+      2,
     );
   });
 
-  it("mengabaikan JSON korup, versi tidak dikenal, dan record invalid", () => {
+  it("memigrasikan data menu lama ke kategori yang dapat dikelola", () => {
+    const storage = createMemoryStorage();
+    const persistence = createMenuPersistence(() => storage);
+    storage.setRaw(
+      "pancong-pos/menu",
+      JSON.stringify({ version: 1, data: MOCK_MENU }),
+    );
+
+    expect(persistence.load()).toEqual({
+      categories: DEFAULT_MENU_CATEGORIES,
+      items: MOCK_MENU,
+    });
+  });
+
+  it("memetakan flag hasToppings lama ke addonIds tanpa membuang menu", () => {
+    const storage = createMemoryStorage();
+    const persistence = createMenuPersistence(() => storage);
+    const [withAddons, withoutAddons] = MOCK_MENU;
+    storage.setRaw(
+      "pancong-pos/menu",
+      JSON.stringify({
+        version: 2,
+        data: {
+          categories: DEFAULT_MENU_CATEGORIES,
+          items: [
+            { ...withAddons, hasToppings: true },
+            { ...withoutAddons, hasToppings: false },
+          ],
+        },
+      }),
+    );
+
+    expect(persistence.load()?.items).toEqual([
+      withAddons,
+      { ...withoutAddons, addonIds: [] },
+    ]);
+  });
+
+  it("mengabaikan JSON korup, versi tidak dikenal, dan data invalid", () => {
     const storage = createMemoryStorage();
     const persistence = createMenuPersistence(() => storage);
 
@@ -51,7 +108,25 @@ describe("persistensi menu", () => {
 
     storage.setRaw(
       "pancong-pos/menu",
-      JSON.stringify({ version: 1, data: [{ ...MOCK_MENU[0], price: -1 }] }),
+      JSON.stringify({
+        version: 2,
+        data: {
+          categories: DEFAULT_MENU_CATEGORIES,
+          items: [{ ...MOCK_MENU[0], price: -1 }],
+        },
+      }),
+    );
+    expect(persistence.load()).toBeNull();
+
+    storage.setRaw(
+      "pancong-pos/menu",
+      JSON.stringify({
+        version: 2,
+        data: {
+          categories: DEFAULT_MENU_CATEGORIES,
+          items: [{ ...MOCK_MENU[0], category: "missing-category" }],
+        },
+      }),
     );
     expect(persistence.load()).toBeNull();
   });

@@ -33,14 +33,14 @@ export function OrderItemRow({
     <li className="border-t border-gray-200 py-3 first:border-t-0 first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words text-sm font-medium text-ink">
+          <h3 className="wrap-break-word text-sm font-medium text-ink">
             {item.name}
           </h3>
           <p className="mt-1 text-xs text-gray-600">
             Rp {rupiahFormatter.format(item.unitPrice)} × {item.qty}
           </p>
           {item.addons.length > 0 ? (
-            <p className="mt-1 break-words text-xs text-gray-600">
+            <p className="mt-1 wrap-break-word text-xs text-gray-600">
               Tambahan: {item.addons.map((addon) => addon.name).join(", ")}
             </p>
           ) : null}
@@ -56,7 +56,7 @@ export function OrderItemRow({
               />
             </label>
           ) : item.note?.trim() ? (
-            <p className="mt-2 whitespace-pre-wrap break-words text-xs text-gray-600">
+            <p className="mt-2 whitespace-pre-wrap wrap-break-word text-xs text-gray-600">
               Catatan: {item.note}
             </p>
           ) : null}
@@ -70,7 +70,7 @@ export function OrderItemRow({
               {onCustomize ? (
                 <IconButton
                   icon={SlidersHorizontal}
-                  label={`Ubah topping ${item.name}`}
+                  label={`Ubah Add-on ${item.name}`}
                   onClick={() => onCustomize(item)}
                 />
               ) : null}

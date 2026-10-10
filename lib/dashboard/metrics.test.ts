@@ -4,6 +4,7 @@ import { createMockOrders } from "../../data/mock/orders";
 import {
   calculateBestSellersToday,
   calculateDashboardKpis,
+  calculateSalesOverview,
   getJakartaDateKey,
   getRecentOrdersToday,
 } from "./metrics";
@@ -14,6 +15,96 @@ const orders = createMockOrders(asOf);
 describe("metrik Dashboard untuk tanggal Asia/Jakarta", () => {
   it("menjumlahkan penjualan dari pesanan lunas hari ini", () => {
     expect(calculateDashboardKpis(orders, asOf).salesToday).toBe(68000);
+  });
+
+  describe("ringkasan Penjualan", () => {
+    it("menghitung omzet lunas hari ini, rata-rata, dan penjualan per menu", () => {
+      const overview = calculateSalesOverview(orders, MOCK_MENU, asOf);
+
+      expect(overview.salesToday).toBe(68000);
+      expect(overview.paidOrdersToday).toBe(3);
+      expect(overview.averageOrderValue).toBe(Math.round(68000 / 3));
+      expect(overview.menuSalesToday).toEqual([
+        {
+          menuId: "ketan-susu-original",
+          name: "Ketan Susu Original",
+          category: "ketan_susu",
+          qtySold: 6,
+          total: 36000,
+        },
+        {
+          menuId: "pancong-original",
+          name: "Pancong Original",
+          category: "pancong",
+          qtySold: 4,
+          total: 32000,
+        },
+      ]);
+      expect(
+        overview.menuSalesToday.reduce((total, item) => total + item.total, 0),
+      ).toBeLessThanOrEqual(overview.salesToday);
+    });
+
+    it("menghitung omzet tujuh tanggal Jakarta berturut-turut termasuk hari ini", () => {
+      const overview = calculateSalesOverview(orders, MOCK_MENU, asOf);
+
+      expect(overview.lastSevenDays.map((day) => day.date)).toEqual([
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04",
+        "2026-10-05",
+        "2026-10-06",
+      ]);
+      expect(overview.lastSevenDays[6]).toMatchObject({
+        date: "2026-10-06",
+        total: 68000,
+        orderCount: 3,
+      });
+    });
+
+    it("membatasi agregat per menu ke total pesanan dan mengecualikan belum bayar", () => {
+      const inconsistentPaidOrder = {
+        ...orders[1],
+        total: 1000,
+        items: [
+          {
+            ...orders[1].items[0],
+            unitPrice: 5000,
+            qty: 2,
+            addons: [{ name: "Extra", price: 1000 }],
+          },
+        ],
+      };
+      const overview = calculateSalesOverview(
+        [inconsistentPaidOrder, orders[0]],
+        MOCK_MENU,
+        asOf,
+      );
+
+      expect(overview.salesToday).toBe(1000);
+      expect(overview.paidOrdersToday).toBe(1);
+      expect(overview.menuSalesToday[0].total).toBe(1000);
+      expect(
+        overview.menuSalesToday.reduce((total, item) => total + item.total, 0),
+      ).toBeLessThanOrEqual(overview.salesToday);
+    });
+
+    it("mengembalikan ringkasan nol saat belum ada pesanan lunas", () => {
+      const overview = calculateSalesOverview(
+        orders,
+        MOCK_MENU,
+        new Date("2026-10-06T17:00:00.000Z"),
+      );
+
+      expect(overview.salesToday).toBe(0);
+      expect(overview.paidOrdersToday).toBe(0);
+      expect(overview.averageOrderValue).toBe(0);
+      expect(overview.menuSalesToday).toEqual([]);
+      expect(overview.lastSevenDays).toHaveLength(7);
+      expect(overview.lastSevenDays[6].total).toBe(0);
+    });
   });
 
   it("menghitung pesanan hari ini tanpa pesanan dibatalkan", () => {

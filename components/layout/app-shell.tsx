@@ -5,7 +5,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useStore } from "zustand";
 import { SideNav } from "@/components/pos/side-nav";
-import { orderStore } from "@/store/order-store";
+import { menuStore } from "@/store/menu-store";
+import { settingsStore } from "@/store/settings-store";
 
 type AppShellProps = {
   active: "beranda" | "pesanan" | "riwayat" | "penjualan" | "akun";
@@ -22,10 +23,18 @@ export function AppShell({
   subtitle,
   title,
 }: AppShellProps) {
-  const persistenceError = useStore(
-    orderStore,
+  const menuPersistenceError = useStore(
+    menuStore,
     (state) => state.persistenceError,
   );
+  const settingsPersistenceError = useStore(
+    settingsStore,
+    (state) => state.persistenceError,
+  );
+  const persistenceErrors = [
+    menuPersistenceError,
+    settingsPersistenceError,
+  ].filter((error): error is string => Boolean(error));
 
   return (
     <div className="grid min-h-dvh grid-cols-1 bg-white md:grid-cols-[15rem_minmax(0,1fr)]">
@@ -50,10 +59,15 @@ export function AppShell({
             ) : null}
           </div>
         </header>
-        {persistenceError ? (
-          <p className="border-b border-gray-200 bg-white px-5 py-3 text-sm text-error md:px-8" role="alert">
-            {persistenceError}
-          </p>
+        {persistenceErrors.length > 0 ? (
+          <div
+            className="border-b border-gray-200 bg-white px-5 py-3 text-sm text-error md:px-8"
+            role="alert"
+          >
+            {persistenceErrors.map((error) => (
+              <p key={error}>{error}</p>
+            ))}
+          </div>
         ) : null}
         <main className="min-h-[calc(100dvh-52px)] bg-white p-5 pb-24 md:min-h-[calc(100dvh-72px)] md:bg-gray-100 md:p-8">
           {children}

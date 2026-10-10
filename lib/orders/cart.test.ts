@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Addon, MenuItem } from "../../types/pos";
+import type { OrderItemAddon, MenuItem } from "../../types/pos";
 import {
   addOrMergeOrderItem,
   replaceOrderItemConfiguration,
@@ -13,10 +13,9 @@ const menuItem: MenuItem = {
   name: "Pancong Coklat",
   category: "pancong",
   price: 8000,
-  hasToppings: true,
 };
 
-const extraKeju: Addon = { name: "Extra Keju", price: 3000 };
+const extraKeju: OrderItemAddon = { name: "Extra Keju", price: 3000 };
 
 describe("perubahan baris keranjang", () => {
   it("menggabungkan baris dengan konfigurasi add-on yang sama", () => {

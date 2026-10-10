@@ -1,12 +1,11 @@
 import { Button } from "@/components/pos/button";
 import { OrderItemRow } from "@/components/pos/order-item-row";
 import { PriceSummary } from "@/components/pos/price-summary";
-import type { MenuItem, OrderItem } from "@/types/pos";
+import type { OrderItem } from "@/types/pos";
 import { calculatePriceSummary, getCartLineKey } from "@/lib/orders/pricing";
 
 type CartPanelProps = {
   items: OrderItem[];
-  menu: MenuItem[];
   itemsError?: string;
   submitLabel?: string;
   onCustomizeItem?: (item: OrderItem) => void;
@@ -17,13 +16,12 @@ type CartPanelProps = {
 export function CartPanel({
   items,
   itemsError,
-  menu,
   onCustomizeItem,
   onNoteChange,
   onQuantityChange,
   submitLabel = "Lanjutkan",
 }: CartPanelProps) {
-  const priceSummary = calculatePriceSummary(items, menu);
+  const priceSummary = calculatePriceSummary(items);
 
   return (
     <section
@@ -36,23 +34,16 @@ export function CartPanel({
 
       {items.length > 0 ? (
         <ul className="mt-4">
-          {items.map((item) => {
-            const menuItem = menu.find(
-              (candidate) => candidate.id === item.menuId,
-            );
-            if (!menuItem) return null;
-
-            return (
-              <OrderItemRow
-                editable
-                item={item}
-                key={getCartLineKey(item.menuId, item.addons)}
-                onCustomize={onCustomizeItem}
-                onNoteChange={onNoteChange}
-                onQuantityChange={onQuantityChange}
-              />
-            );
-          })}
+          {items.map((item) => (
+            <OrderItemRow
+              editable
+              item={item}
+              key={getCartLineKey(item.menuId, item.addons)}
+              onCustomize={onCustomizeItem}
+              onNoteChange={onNoteChange}
+              onQuantityChange={onQuantityChange}
+            />
+          ))}
         </ul>
       ) : (
         <p className="mt-4 rounded-lg bg-gray-100 p-4 text-sm text-gray-600">

@@ -5,28 +5,27 @@ import { useRouter } from "next/navigation";
 import { useStore } from "zustand";
 import { AppShell } from "@/components/layout/app-shell";
 import { CartPanel } from "@/components/order/cart-panel";
-import { ToppingSheet } from "@/components/order/topping-sheet";
+import { AddonSheet } from "@/components/order/addon-sheet";
 import { MenuItemCard } from "@/components/pos/menu-item-card";
 import { Input } from "@/components/pos/input";
-import { MOCK_TOPPINGS } from "@/data/mock/menu";
-import type { Addon, MenuCategory, MenuItem, Order, OrderItem } from "@/types/pos";
+import {
+  DEFAULT_MENU_CATEGORIES,
+  MOCK_MENU,
+  MOCK_ADDONS,
+} from "@/data/mock/menu";
+import type { OrderItemAddon, MenuItem, Order, OrderItem } from "@/types/pos";
 import { validateDraftOrder } from "@/lib/orders/validation";
 import { replaceOrderItemConfiguration } from "@/lib/orders/cart";
+import { getSelectableAddons } from "@/lib/addons/addons";
 import { getCartLineKey } from "@/lib/orders/pricing";
 import { orderStore } from "@/store/order-store";
 import { menuStore } from "@/store/menu-store";
-import { MOCK_MENU } from "@/data/mock/menu";
 
-const categories: { id: MenuCategory; label: string }[] = [
-  { id: "pancong", label: "Pancong" },
-  { id: "ketan_susu", label: "Ketan Susu" },
-];
-
-type ToppingSelection = {
+type AddonSelection = {
   menuItem: MenuItem;
   lineKey?: string;
   quantity: number;
-  addons: Addon[];
+  addons: OrderItemAddon[];
   note?: string;
 };
 
@@ -38,13 +37,14 @@ type NewOrderScreenProps = {
 export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
   const router = useRouter();
   const currentMenu = useStore(menuStore, (state) => state.items);
+  const categories = useStore(menuStore, (state) => state.categories);
   const initializeMenu = useStore(menuStore, (state) => state.initialize);
   const activeMenu = currentMenu.filter((item) => item.active !== false);
   const customerName = useStore(orderStore, (state) => state.customerName);
   const items = useStore(orderStore, (state) => state.items);
   const draftId = useStore(orderStore, (state) => state.draftId);
-  const [selectedTopping, setSelectedTopping] =
-    useState<ToppingSelection | null>(null);
+  const [addonSelection, setAddonSelection] =
+    useState<AddonSelection | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const setCustomerName = orderStore.getState().setCustomerName;
   const addItem = orderStore.getState().addItem;
@@ -55,7 +55,7 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
     const menuItem = currentMenu.find((candidate) => candidate.id === item.menuId);
     if (!menuItem) return;
 
-    setSelectedTopping({
+    setAddonSelection({
       menuItem: { ...menuItem, price: item.unitPrice },
       lineKey: getCartLineKey(item.menuId, item.addons),
       quantity: item.qty,
@@ -70,7 +70,10 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
   }, [initialOrders, initializeOrders]);
 
   useEffect(() => {
-    initializeMenu(menu.length > 0 ? menu : MOCK_MENU);
+    initializeMenu(
+      menu.length > 0 ? menu : MOCK_MENU,
+      DEFAULT_MENU_CATEGORIES,
+    );
   }, [initializeMenu, menu]);
 
   function continueToReview(event: FormEvent<HTMLFormElement>) {
@@ -123,7 +126,7 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
               return (
                 <div className="space-y-3" key={category.id}>
                   <h2 className="text-base font-semibold text-ink">
-                    {category.label}
+                    {category.name}
                   </h2>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {categoryMenu.map((item) => (
@@ -131,12 +134,15 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
                         item={item}
                         key={item.id}
                         onAdd={() => addItem(item, 1)}
-                        onCustomize={() =>
-                          setSelectedTopping({
-                            menuItem: item,
-                            quantity: 1,
-                            addons: [],
-                          })
+                        onCustomize={
+                          getSelectableAddons(item, MOCK_ADDONS).length > 0
+                            ? () =>
+                                setAddonSelection({
+                                  menuItem: item,
+                                  quantity: 1,
+                                  addons: [],
+                                })
+                            : undefined
                         }
                       />
                     ))}
@@ -149,7 +155,6 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
           <CartPanel
             items={items}
             itemsError={showValidation ? errors.items : undefined}
-            menu={currentMenu}
             onCustomizeItem={customizeCartItem}
             onNoteChange={setItemNote}
             onQuantityChange={(lineKey, quantity) =>
@@ -159,14 +164,14 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
         </div>
       </form>
 
-      {selectedTopping ? (
-        <ToppingSheet
-          key={`${selectedTopping.menuItem.id}:${selectedTopping.lineKey ?? "new"}`}
-          initialAddons={selectedTopping.addons}
-          initialQuantity={selectedTopping.quantity}
-          menuItem={selectedTopping.menuItem}
+      {addonSelection ? (
+        <AddonSheet
+          key={`${addonSelection.menuItem.id}:${addonSelection.lineKey ?? "new"}`}
+          initialAddons={addonSelection.addons}
+          initialQuantity={addonSelection.quantity}
+          menuItem={addonSelection.menuItem}
           onAdd={(menuItem, quantity, addons) => {
-            const lineKey = selectedTopping.lineKey;
+            const lineKey = addonSelection.lineKey;
             if (lineKey) {
               orderStore.setState((state) => ({
                 items: replaceOrderItemConfiguration(
@@ -175,7 +180,7 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
                   menuItem,
                   quantity,
                   addons,
-                  selectedTopping.note,
+                  addonSelection.note,
                 ),
               }));
               return;
@@ -183,11 +188,11 @@ export function NewOrderScreen({ initialOrders, menu }: NewOrderScreenProps) {
 
             addItem(menuItem, quantity, addons);
           }}
-          onClose={() => setSelectedTopping(null)}
+          onClose={() => setAddonSelection(null)}
           submitLabel={
-            selectedTopping.lineKey ? "Simpan perubahan" : "Tambah ke Pesanan"
+            addonSelection.lineKey ? "Simpan perubahan" : "Tambah ke Pesanan"
           }
-          toppings={MOCK_TOPPINGS}
+          addons={getSelectableAddons(addonSelection.menuItem, MOCK_ADDONS)}
         />
       ) : null}
     </AppShell>

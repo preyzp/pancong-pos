@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { MOCK_MENU } from "../../data/mock/menu";
 import { createMockOrders } from "../../data/mock/orders";
 import { buildEditedOrder, createEditableOrder } from "./edit-order";
 
@@ -34,7 +33,7 @@ describe("edit pesanan", () => {
     editable.items[0].qty = 3;
     editable.items[0].addons = [{ name: "Extra Keju", price: 3000 }];
 
-    const updatedOrder = buildEditedOrder(pendingOrder, editable, MOCK_MENU);
+    const updatedOrder = buildEditedOrder(pendingOrder, editable);
 
     expect(updatedOrder.customerName).toBe("Andi Baru");
     expect(updatedOrder.items[0].qty).toBe(3);
@@ -52,10 +51,10 @@ describe("edit pesanan", () => {
     const editable = createEditableOrder(pendingOrder);
     editable.items[0].qty = 3;
 
-    const firstSave = buildEditedOrder(pendingOrder, editable, MOCK_MENU);
+    const firstSave = buildEditedOrder(pendingOrder, editable);
     const secondDraft = createEditableOrder(firstSave);
     secondDraft.items[0].qty = 4;
-    const secondSave = buildEditedOrder(firstSave, secondDraft, MOCK_MENU);
+    const secondSave = buildEditedOrder(firstSave, secondDraft);
 
     expect(pendingOrder.items).toEqual(originalItems);
     expect(pendingOrder.total).toBe(22000);
@@ -64,16 +63,11 @@ describe("edit pesanan", () => {
     expect(secondSave.total).toBe(38000);
   });
 
-  it("mempertahankan harga snapshot order saat ini berubah dan topping diedit", () => {
+  it("mempertahankan harga snapshot order dan menghitung ulang saat add-on diedit", () => {
     const editable = createEditableOrder(pendingOrder);
     editable.items[0].addons = [{ name: "Keju", price: 3000 }];
-    const changedMenu = MOCK_MENU.map((menuItem) =>
-      menuItem.id === editable.items[0].menuId
-        ? { ...menuItem, price: 12000 }
-        : menuItem,
-    );
 
-    const updatedOrder = buildEditedOrder(pendingOrder, editable, changedMenu);
+    const updatedOrder = buildEditedOrder(pendingOrder, editable);
 
     expect(updatedOrder.items[0].unitPrice).toBe(8000);
     expect(updatedOrder.subtotal).toBe(28000);

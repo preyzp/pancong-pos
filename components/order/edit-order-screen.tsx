@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import { useStore } from "zustand";
 import { AppShell } from "../layout/app-shell";
 import { CartPanel } from "./cart-panel";
-import { ToppingSheet } from "./topping-sheet";
+import { AddonSheet } from "./addon-sheet";
 import { Input } from "../pos/input";
 import { MenuItemCard } from "../pos/menu-item-card";
-import { MOCK_MENU, MOCK_TOPPINGS } from "../../data/mock/menu";
-import type { Addon, MenuCategory, MenuItem, Order, OrderItem } from "../../types/pos";
+import {
+  DEFAULT_MENU_CATEGORIES,
+  MOCK_MENU,
+  MOCK_ADDONS,
+} from "../../data/mock/menu";
+import type { OrderItemAddon, MenuItem, Order, OrderItem } from "../../types/pos";
 import {
   addOrMergeOrderItem,
   replaceOrderItemConfiguration,
@@ -22,20 +26,16 @@ import {
   type EditableOrder,
 } from "../../lib/orders/edit-order";
 import { validateDraftOrder } from "../../lib/orders/validation";
+import { getSelectableAddons } from "../../lib/addons/addons";
 import { getCartLineKey } from "../../lib/orders/pricing";
 import { orderStore } from "../../store/order-store";
 import { menuStore } from "../../store/menu-store";
 
-const categories: { id: MenuCategory; label: string }[] = [
-  { id: "pancong", label: "Pancong" },
-  { id: "ketan_susu", label: "Ketan Susu" },
-];
-
-type ToppingSelection = {
+type AddonSelection = {
   menuItem: MenuItem;
   lineKey?: string;
   quantity: number;
-  addons: Addon[];
+  addons: OrderItemAddon[];
   note?: string;
 };
 
@@ -78,6 +78,7 @@ function EditOrderContent({
 }: EditOrderContentProps) {
   const router = useRouter();
   const menu = useStore(menuStore, (state) => state.items);
+  const categories = useStore(menuStore, (state) => state.categories);
   const initializeMenu = useStore(menuStore, (state) => state.initialize);
   const activeMenu = menu.filter((item) => item.active !== false);
   const storedOrders = useStore(orderStore, (state) => state.orders);
@@ -97,8 +98,8 @@ function EditOrderContent({
       ? createEditableOrder(existingOrder)
       : { customerName: "", items: [] };
   });
-  const [selectedTopping, setSelectedTopping] =
-    useState<ToppingSelection | null>(null);
+  const [addonSelection, setAddonSelection] =
+    useState<AddonSelection | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [saveError, setSaveError] = useState("");
   const errors = validateDraftOrder(
@@ -112,7 +113,7 @@ function EditOrderContent({
   }, [initialOrders, initializeOrders]);
 
   useEffect(() => {
-    initializeMenu(MOCK_MENU);
+    initializeMenu(MOCK_MENU, DEFAULT_MENU_CATEGORIES);
   }, [initializeMenu]);
 
   function updateQuantity(lineKey: string, quantity: number) {
@@ -126,7 +127,7 @@ function EditOrderContent({
     const menuItem = menu.find((candidate) => candidate.id === item.menuId);
     if (!menuItem) return;
 
-    setSelectedTopping({
+    setAddonSelection({
       menuItem: { ...menuItem, price: item.unitPrice },
       lineKey: getCartLineKey(item.menuId, item.addons),
       quantity: item.qty,
@@ -138,18 +139,18 @@ function EditOrderContent({
   function addCustomizedItem(
     menuItem: MenuItem,
     quantity: number,
-    addons: Addon[],
+    addons: OrderItemAddon[],
   ) {
     setEditable((current) => ({
       ...current,
-      items: selectedTopping?.lineKey
+      items: addonSelection?.lineKey
         ? replaceOrderItemConfiguration(
             current.items,
-            selectedTopping.lineKey,
+            addonSelection.lineKey,
             menuItem,
             quantity,
             addons,
-            selectedTopping.note,
+            addonSelection.note,
           )
         : addOrMergeOrderItem(current.items, menuItem, quantity, addons),
     }));
@@ -165,7 +166,7 @@ function EditOrderContent({
     }
 
     orderStore.getState().initializeOrders(initialOrders);
-    const updatedOrder = buildEditedOrder(order, editable, menu);
+    const updatedOrder = buildEditedOrder(order, editable);
     if (!orderStore.getState().updateUnpaidOrder(updatedOrder, menu)) {
       setSaveError("Pesanan tidak lagi dapat diedit.");
       return;
@@ -223,7 +224,7 @@ function EditOrderContent({
               {categories.map((category) => (
                 <div className="space-y-3" key={category.id}>
                   <h2 className="text-base font-semibold text-ink">
-                    {category.label}
+                    {category.name}
                   </h2>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {activeMenu.filter((item) => item.category === category.id).map(
@@ -237,12 +238,15 @@ function EditOrderContent({
                               items: addOrMergeOrderItem(current.items, item, 1),
                             }))
                           }
-                          onCustomize={() =>
-                            setSelectedTopping({
-                              menuItem: item,
-                              quantity: 1,
-                              addons: [],
-                            })
+                          onCustomize={
+                            getSelectableAddons(item, MOCK_ADDONS).length > 0
+                              ? () =>
+                                  setAddonSelection({
+                                    menuItem: item,
+                                    quantity: 1,
+                                    addons: [],
+                                  })
+                              : undefined
                           }
                         />
                       ),
@@ -255,7 +259,6 @@ function EditOrderContent({
             <CartPanel
               items={editable.items}
               itemsError={showValidation ? errors.items : undefined}
-              menu={menu}
               onCustomizeItem={customizeExistingItem}
               onNoteChange={(lineKey, note) =>
                 setEditable((current) => ({
@@ -276,18 +279,18 @@ function EditOrderContent({
         </form>
       )}
 
-      {selectedTopping ? (
-        <ToppingSheet
-          key={`${selectedTopping.menuItem.id}:${selectedTopping.lineKey ?? "new"}`}
-          initialAddons={selectedTopping.addons}
-          initialQuantity={selectedTopping.quantity}
-          menuItem={selectedTopping.menuItem}
+      {addonSelection ? (
+        <AddonSheet
+          key={`${addonSelection.menuItem.id}:${addonSelection.lineKey ?? "new"}`}
+          initialAddons={addonSelection.addons}
+          initialQuantity={addonSelection.quantity}
+          menuItem={addonSelection.menuItem}
           onAdd={addCustomizedItem}
-          onClose={() => setSelectedTopping(null)}
+          onClose={() => setAddonSelection(null)}
           submitLabel={
-            selectedTopping.lineKey ? "Simpan Add-on" : "Tambah ke Pesanan"
+            addonSelection.lineKey ? "Simpan Add-on" : "Tambah ke Pesanan"
           }
-          toppings={MOCK_TOPPINGS}
+          addons={getSelectableAddons(addonSelection.menuItem, MOCK_ADDONS)}
         />
       ) : null}
     </AppShell>

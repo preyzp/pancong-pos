@@ -1,4 +1,4 @@
-import type { Addon, Order, OrderItem, OrderStatus } from "../../types/pos";
+import type { OrderItemAddon, Order, OrderItem, OrderStatus } from "../../types/pos";
 
 const STORAGE_KEY = "pancong-pos/orders";
 const STORAGE_VERSION = 1;
@@ -19,13 +19,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isAddon(value: unknown): value is Addon {
+function isOrderItemAddon(value: unknown): value is OrderItemAddon {
   return (
     isRecord(value) &&
     typeof value.name === "string" &&
     typeof value.price === "number" &&
     Number.isFinite(value.price) &&
-    value.price >= 0
+    value.price >= 0 &&
+    (value.addonId === undefined ||
+      (typeof value.addonId === "string" && value.addonId.length > 0)) &&
+    (value.qty === undefined ||
+      (typeof value.qty === "number" &&
+        Number.isSafeInteger(value.qty) &&
+        value.qty > 0))
   );
 }
 
@@ -34,7 +40,8 @@ function isOrderItem(value: unknown): value is OrderItem {
     isRecord(value) &&
     typeof value.menuId === "string" &&
     typeof value.name === "string" &&
-    (value.category === "pancong" || value.category === "ketan_susu") &&
+    typeof value.category === "string" &&
+    value.category.length > 0 &&
     typeof value.unitPrice === "number" &&
     Number.isFinite(value.unitPrice) &&
     value.unitPrice >= 0 &&
@@ -42,7 +49,7 @@ function isOrderItem(value: unknown): value is OrderItem {
     Number.isSafeInteger(value.qty) &&
     value.qty > 0 &&
     Array.isArray(value.addons) &&
-    value.addons.every(isAddon) &&
+    value.addons.every(isOrderItemAddon) &&
     (value.note === undefined ||
       (typeof value.note === "string" && value.note.length <= 200))
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createMockOrders } from "../data/mock/orders";
 import { MOCK_MENU } from "../data/mock/menu";
-import type { Addon, MenuItem } from "../types/pos";
+import type { OrderItemAddon, MenuItem } from "../types/pos";
 import { createOrderPersistence } from "../lib/orders/order-persistence";
 import { createOrderStore } from "./order-store";
 
@@ -10,10 +10,9 @@ const pancongCoklat: MenuItem = {
   name: "Pancong Coklat",
   category: "pancong",
   price: 8000,
-  hasToppings: true,
 };
 
-const extraKeju: Addon = { name: "Extra Keju", price: 3000 };
+const extraKeju: OrderItemAddon = { name: "Extra Keju", price: 3000 };
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -30,7 +29,7 @@ class MemoryStorage {
 describe("keranjang draft pesanan", () => {
   it("menggabungkan menu dengan konfigurasi add-on identik tanpa bergantung urutan", () => {
     const store = createOrderStore();
-    const kacang: Addon = { name: "Kacang", price: 2000 };
+    const kacang: OrderItemAddon = { name: "Kacang", price: 2000 };
 
     store.getState().addItem(pancongCoklat, 1, [extraKeju, kacang]);
     store.getState().addItem(pancongCoklat, 2, [kacang, extraKeju]);
@@ -301,5 +300,47 @@ describe("keranjang draft pesanan", () => {
     storageUnavailable = false;
     store.getState().setOrders(orders.slice(1));
     expect(store.getState().persistenceError).toBeNull();
+  });
+
+  it("mencatat uang diterima dan kembalian Tunai serta menolak nominal kurang", () => {
+    const store = createOrderStore();
+    const orders = createMockOrders(new Date("2026-10-06T05:00:00.000Z"));
+    store.getState().initializeOrders(orders);
+    const paidAt = new Date("2026-10-07T04:00:00.000Z");
+
+    expect(store.getState().markOrderPaid("#012", "tunai", paidAt, 21000)).toBe(false);
+    expect(store.getState().markOrderPaid("#012", "tunai", paidAt, 25000.5)).toBe(false);
+    expect(store.getState().orders.find((order) => order.id === "#012")?.status).toBe(
+      "belum_bayar",
+    );
+
+    expect(store.getState().markOrderPaid("#012", "tunai", paidAt, 25000)).toBe(true);
+    expect(store.getState().orders.find((order) => order.id === "#012")).toMatchObject({
+      status: "lunas",
+      paymentMethod: "tunai",
+      cashReceived: 25000,
+      change: 3000,
+    });
+    expect(store.getState().markOrderPaid("#012", "tunai", paidAt, 25000)).toBe(false);
+  });
+
+  it("menahan konfirmasi QRIS manual sebelum kasir memverifikasi", () => {
+    const store = createOrderStore();
+    store
+      .getState()
+      .initializeOrders(createMockOrders(new Date("2026-10-06T05:00:00.000Z")));
+
+    expect(
+      store.getState().markOrderPaid("#012", "qris", new Date(), undefined, false),
+    ).toBe(false);
+    expect(
+      store.getState().markOrderPaid("#012", "qris", new Date(), 25000, true),
+    ).toBe(false);
+    expect(
+      store.getState().markOrderPaid("#012", "qris", new Date(), undefined, true),
+    ).toBe(true);
+    const paidOrder = store.getState().orders.find((order) => order.id === "#012");
+    expect(paidOrder?.paymentMethod).toBe("qris");
+    expect(paidOrder?.cashReceived).toBeUndefined();
   });
 });

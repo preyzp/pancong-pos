@@ -1,4 +1,4 @@
-import type { MenuItem, Order, OrderItem } from "../../types/pos";
+import type { Order, OrderItem } from "../../types/pos";
 import { calculatePriceSummary } from "./pricing";
 
 export type EditableOrder = {
@@ -16,16 +16,12 @@ export function createEditableOrder(order: Order): EditableOrder {
   };
 }
 
-export function buildEditedOrder(
-  order: Order,
-  editable: EditableOrder,
-  menu: MenuItem[],
-): Order {
+export function buildEditedOrder(order: Order, editable: EditableOrder): Order {
   const items = editable.items.map((item) => ({
     ...item,
     addons: item.addons.map((addon) => ({ ...addon })),
   }));
-  const priceSummary = calculatePriceSummary(items, menu);
+  const priceSummary = calculatePriceSummary(items);
 
   return {
     ...order,

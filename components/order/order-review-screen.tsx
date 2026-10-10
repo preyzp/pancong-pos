@@ -12,6 +12,7 @@ import { calculatePriceSummary, getCartLineKey } from "@/lib/orders/pricing";
 import { validateDraftOrder } from "@/lib/orders/validation";
 import { orderStore } from "@/store/order-store";
 import { menuStore } from "@/store/menu-store";
+import { settingsStore } from "@/store/settings-store";
 
 type OrderReviewScreenProps = {
   orderId: string;
@@ -21,6 +22,14 @@ export function OrderReviewScreen({ orderId }: OrderReviewScreenProps) {
   const router = useRouter();
   const menu = useStore(menuStore, (state) => state.items);
   const initializeMenu = useStore(menuStore, (state) => state.initialize);
+  const cashierName = useStore(
+    settingsStore,
+    (state) => state.settings.cashierName,
+  );
+  const initializeSettings = useStore(
+    settingsStore,
+    (state) => state.initialize,
+  );
   const customerName = useStore(orderStore, (state) => state.customerName);
   const items = useStore(orderStore, (state) => state.items);
   const draftId = useStore(orderStore, (state) => state.draftId);
@@ -31,19 +40,23 @@ export function OrderReviewScreen({ orderId }: OrderReviewScreenProps) {
   const [showValidation, setShowValidation] = useState(false);
   const [saveError, setSaveError] = useState("");
   const isDraftAvailable = draftId === orderId && items.length > 0;
-  const priceSummary = calculatePriceSummary(items, menu);
+  const priceSummary = calculatePriceSummary(items);
   const errors = validateDraftOrder(customerName, items, menu);
 
   useEffect(() => {
     initializeMenu(MOCK_MENU);
   }, [initializeMenu]);
 
+  useEffect(() => {
+    initializeSettings();
+  }, [initializeSettings]);
+
   function confirmOrder() {
     setShowValidation(true);
     setSaveError("");
     if (Object.keys(errors).length > 0) return;
 
-    const result = createOrderFromDraft(menu, "Budi");
+    const result = createOrderFromDraft(menu, cashierName);
     if (!result.ok) {
       setSaveError("Draft pesanan tidak dapat disimpan. Periksa kembali pesanan.");
       return;
@@ -72,19 +85,12 @@ export function OrderReviewScreen({ orderId }: OrderReviewScreenProps) {
             ) : null}
           </div>
           <ul className="py-4">
-            {items.map((item) => {
-              const menuItem = menu.find(
-                (candidate) => candidate.id === item.menuId,
-              );
-              if (!menuItem) return null;
-
-              return (
-                <OrderItemRow
-                  item={item}
-                  key={getCartLineKey(item.menuId, item.addons)}
-                />
-              );
-            })}
+            {items.map((item) => (
+              <OrderItemRow
+                item={item}
+                key={getCartLineKey(item.menuId, item.addons)}
+              />
+            ))}
           </ul>
           {showValidation && errors.items ? (
             <p className="pb-3 text-xs text-error" role="alert">

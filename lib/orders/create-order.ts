@@ -49,7 +49,7 @@ export function buildUnpaidOrder(
       addons: item.addons.map((addon) => ({ ...addon })),
     };
   });
-  const priceSummary = calculatePriceSummary(orderItems, menu);
+  const priceSummary = calculatePriceSummary(orderItems);
 
   return {
     ok: true,

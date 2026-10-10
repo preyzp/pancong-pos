@@ -99,7 +99,7 @@ describe("detail pesanan", () => {
     const editable = createEditableOrder(original);
     editable.items[0].qty = 3;
     editable.items[0].addons = [{ name: "Extra Keju", price: 3000 }];
-    const updated = buildEditedOrder(original, editable, MOCK_MENU);
+    const updated = buildEditedOrder(original, editable);
     expect(
       firstStore.getState().updateUnpaidOrder(updated, MOCK_MENU),
     ).toBe(true);
@@ -148,9 +148,33 @@ describe("detail pesanan", () => {
     expect(markup).not.toContain(">Batalkan</button>");
   });
 
+  it("menampilkan uang diterima dan kembalian pada detail pesanan tunai yang lunas", () => {
+    const order = {
+      ...createMockOrders(new Date("2026-10-06T05:00:00.000Z"))[0],
+      status: "lunas" as const,
+      paymentMethod: "tunai" as const,
+      cashReceived: 25000,
+      change: 3000,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(OrderDetailView, {
+        loading: false,
+        onCancel: noop,
+        onEdit: noop,
+        order,
+      }),
+    );
+
+    expect(markup).toContain("Uang diterima");
+    expect(markup).toContain("Rp 25.000");
+    expect(markup).toContain("Kembalian");
+    expect(markup).toContain("Rp 3.000");
+  });
+
   it("menampilkan opsi metode dan konfirmasi jumlah pembayaran", () => {
     const methodMarkup = renderToStaticMarkup(
       createElement(PaymentMethodSelector, {
+        enabledMethods: ["tunai", "qris"],
         onChange: noop,
         value: "qris",
       }),
@@ -160,6 +184,8 @@ describe("detail pesanan", () => {
     )[0];
     const confirmationMarkup = renderToStaticMarkup(
       createElement(PaymentConfirmationDialog, {
+        cashReceived: 25000,
+        change: 3000,
         method: "tunai",
         onCancel: noop,
         onConfirm: noop,
@@ -170,9 +196,43 @@ describe("detail pesanan", () => {
     expect(methodMarkup).toContain('value="tunai"');
     expect(methodMarkup).toContain('value="qris"');
     expect(methodMarkup).toContain('checked="" value="qris"');
-    expect(confirmationMarkup).toContain("Pastikan pembayaran sudah diterima.");
+    expect(confirmationMarkup).toContain("Uang diterima Rp 25.000");
+    expect(confirmationMarkup).toContain("kembalian Rp 3.000");
     expect(confirmationMarkup).toContain("Rp 22.000");
     expect(confirmationMarkup).toContain("Tunai");
     expect(confirmationMarkup).toContain("Ya, tandai lunas");
+  });
+
+  it("hanya menampilkan metode pembayaran yang diaktifkan", () => {
+    const methodMarkup = renderToStaticMarkup(
+      createElement(PaymentMethodSelector, {
+        enabledMethods: ["tunai"],
+        onChange: noop,
+        value: "tunai",
+      }),
+    );
+
+    expect(methodMarkup).toContain('value="tunai"');
+    expect(methodMarkup).not.toContain('value="qris"');
+  });
+
+  it("menjelaskan konfirmasi QRIS manual dan menahannya sebelum verifikasi", () => {
+    const order = createMockOrders(
+      new Date("2026-10-06T05:00:00.000Z"),
+    )[0];
+    const confirmationMarkup = renderToStaticMarkup(
+      createElement(PaymentConfirmationDialog, {
+        method: "qris",
+        onCancel: noop,
+        onConfirm: noop,
+        order,
+      }),
+    );
+
+    expect(confirmationMarkup).toContain("tidak membuat QR");
+    expect(confirmationMarkup).toContain(
+      "Saya sudah memastikan pembayaran QRIS diterima.",
+    );
+    expect(confirmationMarkup).toContain('disabled=""');
   });
 });

@@ -69,4 +69,60 @@ describe("penyimpanan order", () => {
 
     expect(persistence.load()).toEqual([paidOrder]);
   });
+
+  it("mempertahankan ID kategori dinamis sebagai snapshot dalam pesanan lama", () => {
+    const storage = new MemoryStorage();
+    const persistence = createOrderPersistence(() => storage);
+    const order = createMockOrders(new Date("2026-10-06T05:00:00.000Z"))[0];
+    const categorizedOrder = {
+      ...order,
+      items: order.items.map((item) => ({
+        ...item,
+        category: "kategori-minuman",
+      })),
+    };
+
+    persistence.save([categorizedOrder]);
+
+    expect(persistence.load()).toEqual([categorizedOrder]);
+  });
+
+  it("menyimpan snapshot Add-on dengan ID dan jumlah serta menolak jumlah tidak valid", () => {
+    const storage = new MemoryStorage();
+    const persistence = createOrderPersistence(() => storage);
+    const order = createMockOrders(new Date("2026-10-06T05:00:00.000Z"))[0];
+    const withAddon = {
+      ...order,
+      items: order.items.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              addons: [{ addonId: "keju", name: "Keju", price: 3000, qty: 1 }],
+            }
+          : item,
+      ),
+    };
+
+    persistence.save([withAddon]);
+    expect(persistence.load()).toEqual([withAddon]);
+
+    storage.setItem(
+      "pancong-pos/orders",
+      JSON.stringify({
+        version: 1,
+        data: [
+          {
+            ...withAddon,
+            items: [
+              {
+                ...withAddon.items[0],
+                addons: [{ addonId: "keju", name: "Keju", price: 3000, qty: 0 }],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(persistence.load()).toBeNull();
+  });
 });

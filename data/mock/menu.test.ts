@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { MOCK_MENU, MOCK_TOPPINGS } from "./menu";
+import { MOCK_ADDONS, MOCK_MENU } from "./menu";
 
-describe("seed menu dan topping", () => {
+describe("seed menu dan Add-on", () => {
   it("menyediakan nama dan harga seluruh menu starter", () => {
     expect(MOCK_MENU).toHaveLength(19);
     expect(MOCK_MENU.filter((item) => item.category === "pancong")).toHaveLength(
@@ -34,14 +34,18 @@ describe("seed menu dan topping", () => {
       ["Ketan Susu Duren Oreo", 16000],
       ["Ketan Susu Duren Keju Oreo", 19000],
     ]);
-    expect(MOCK_MENU.every((item) => item.hasToppings)).toBe(true);
+    expect(MOCK_MENU.every((item) => item.addonIds === undefined)).toBe(true);
   });
 
-  it("menyediakan nama dan harga seluruh topping starter dengan ID unik", () => {
-    expect(MOCK_TOPPINGS).toHaveLength(11);
-    expect(new Set(MOCK_TOPPINGS.map((topping) => topping.id)).size).toBe(11);
+  it("menyediakan nama dan harga seluruh Add-on starter dengan ID unik", () => {
+    expect(MOCK_ADDONS).toHaveLength(11);
+    expect(new Set(MOCK_ADDONS.map((addon) => addon.id)).size).toBe(11);
+    expect(MOCK_ADDONS.every((addon) => addon.active)).toBe(true);
+    expect(MOCK_ADDONS.map((addon) => addon.sortOrder)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
     expect(
-      MOCK_TOPPINGS.map(({ name, price }) => [name, price]),
+      MOCK_ADDONS.map(({ name, price }) => [name, price]),
     ).toEqual([
       ["Cokelat", 3000],
       ["Keju", 3000],

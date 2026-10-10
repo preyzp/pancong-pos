@@ -75,6 +75,24 @@ export function OrderDetailView({
           </span>
         </p>
       ) : null}
+      {order.paymentMethod === "tunai" &&
+      order.status === "lunas" &&
+      order.cashReceived !== undefined ? (
+        <dl className="space-y-2 border-b border-gray-200 py-3 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-gray-600">Uang diterima</dt>
+            <dd className="font-medium text-ink">
+              {formatRupiah(order.cashReceived)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-gray-600">Kembalian</dt>
+            <dd className="font-medium text-ink">
+              {formatRupiah(order.change ?? 0)}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
       {order.paidAt ? (
         <p className="border-b border-gray-200 py-3 text-sm text-gray-600">
           Waktu pembayaran:{" "}

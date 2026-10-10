@@ -5,7 +5,8 @@ import type { MenuItem } from "@/types/pos";
 type MenuItemCardProps = {
   item: MenuItem;
   onAdd: () => void;
-  onCustomize: () => void;
+  /** Tidak diisi jika menu tidak memiliki Add-on yang dapat dipilih. */
+  onCustomize?: () => void;
 };
 
 const rupiahFormatter = new Intl.NumberFormat("id-ID", {
@@ -16,7 +17,7 @@ export function MenuItemCard({ item, onAdd, onCustomize }: MenuItemCardProps) {
   return (
     <article className="flex min-h-[76px] items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
       <div className="min-w-0">
-        <h3 className="break-words text-sm font-medium text-ink">
+        <h3 className="wrap-break-word text-sm font-medium text-ink">
           {item.name}
         </h3>
         <p className="mt-1 text-xs text-gray-600">
@@ -24,10 +25,10 @@ export function MenuItemCard({ item, onAdd, onCustomize }: MenuItemCardProps) {
         </p>
       </div>
       <div className="flex shrink-0 gap-2">
-        {item.hasToppings ? (
+        {onCustomize ? (
           <IconButton
             icon={SlidersHorizontal}
-            label={`Atur topping ${item.name}`}
+            label={`Atur Add-on ${item.name}`}
             onClick={onCustomize}
           />
         ) : null}

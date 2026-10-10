@@ -14,7 +14,7 @@ const item: OrderItem = {
 };
 
 describe("pembuatan order belum bayar", () => {
-  it("membuat order berikutnya dari snapshot harga item dan topping per unit", () => {
+  it("membuat order berikutnya dari snapshot harga item dan Add-on per unit", () => {
     const existingOrders = createMockOrders(
       new Date("2026-10-06T05:00:00.000Z"),
     );

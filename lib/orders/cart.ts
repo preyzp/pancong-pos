@@ -1,9 +1,18 @@
-import type { Addon, MenuItem, OrderItem } from "../../types/pos";
+import type { OrderItemAddon, MenuItem, OrderItem } from "../../types/pos";
 import { getCartLineKey } from "./pricing";
 
-function normalizeAddons(addons: Addon[]): Addon[] {
+function normalizeAddons(addons: OrderItemAddon[]): OrderItemAddon[] {
   if (addons.some((addon) => !Number.isFinite(addon.price) || addon.price < 0)) {
-    throw new RangeError("Harga add-on harus berupa angka non-negatif.");
+    throw new RangeError("Harga Add-on harus berupa angka non-negatif.");
+  }
+  if (
+    addons.some(
+      (addon) =>
+        addon.qty !== undefined &&
+        (!Number.isSafeInteger(addon.qty) || addon.qty <= 0),
+    )
+  ) {
+    throw new RangeError("Jumlah Add-on harus berupa bilangan bulat positif.");
   }
 
   return [...addons].sort(
@@ -27,7 +36,7 @@ export function addOrMergeOrderItem(
   items: OrderItem[],
   menuItem: MenuItem,
   quantity: number,
-  addons: Addon[] = [],
+  addons: OrderItemAddon[] = [],
 ): OrderItem[] {
   assertQuantity(quantity, false);
   if (!Number.isFinite(menuItem.price) || menuItem.price < 0) {
@@ -100,7 +109,7 @@ export function replaceOrderItemConfiguration(
   lineKey: string,
   menuItem: MenuItem,
   quantity: number,
-  addons: Addon[],
+  addons: OrderItemAddon[],
   note = "",
 ): OrderItem[] {
   assertQuantity(quantity, true);

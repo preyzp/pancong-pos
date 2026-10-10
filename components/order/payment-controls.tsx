@@ -10,15 +10,25 @@ function formatRupiah(amount: number): string {
 }
 
 export function PaymentConfirmationDialog({
+  cashReceived,
+  change,
+  isProcessing = false,
   method,
   onCancel,
   onConfirm,
+  onQrisVerifiedChange = () => undefined,
   order,
+  qrisVerified = false,
 }: {
+  cashReceived?: number;
+  change?: number;
+  isProcessing?: boolean;
   method: PaymentMethod;
   onCancel: () => void;
   onConfirm: () => void;
+  onQrisVerifiedChange?: (verified: boolean) => void;
   order: Order;
+  qrisVerified?: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-5">
@@ -35,15 +45,46 @@ export function PaymentConfirmationDialog({
           Konfirmasi Pembayaran
         </h2>
         <p className="mt-2 text-sm leading-5 text-gray-600">
-          Tandai pesanan {order.id} sebagai lunas dengan metode{" "}
-          {method === "tunai" ? "Tunai" : "QRIS"} sebesar{" "}
-          {formatRupiah(order.total)}? Pastikan pembayaran sudah diterima.
+          {method === "tunai"
+            ? `Konfirmasi pembayaran Tunai pesanan ${order.id} sebesar ${formatRupiah(order.total)}. Uang diterima ${formatRupiah(cashReceived ?? 0)} dengan kembalian ${formatRupiah(change ?? 0)}.`
+            : `Tandai pesanan ${order.id} sebesar ${formatRupiah(order.total)} sebagai lunas setelah pembayaran QRIS diverifikasi.`}
         </p>
+        {method === "qris" ? (
+          <p className="mt-2 text-sm leading-5 text-gray-600">
+            Pancong POS tidak membuat QR maupun terhubung ke penyedia pembayaran.
+            Periksa bukti atau transaksi pada aplikasi merchant QRIS toko sebelum
+            mengonfirmasi.
+          </p>
+        ) : null}
+        {method === "qris" ? (
+          <label className="mt-4 flex min-h-11 items-center gap-3 text-sm text-ink">
+            <input
+              checked={qrisVerified}
+              className="size-4 accent-ink"
+              onChange={(event) =>
+                onQrisVerifiedChange(event.currentTarget.checked)
+              }
+              type="checkbox"
+            />
+            Saya sudah memastikan pembayaran QRIS diterima.
+          </label>
+        ) : null}
         <div className="mt-6 flex justify-end gap-2">
-          <Button onClick={onCancel} variant="secondary">
+          <Button
+            disabled={isProcessing}
+            onClick={onCancel}
+            variant="secondary"
+          >
             Kembali
           </Button>
-          <Button onClick={onConfirm}>Ya, tandai lunas</Button>
+          <Button
+            disabled={
+              isProcessing || (method === "qris" && !qrisVerified)
+            }
+            onClick={onConfirm}
+          >
+            {isProcessing ? "Memproses..." : "Ya, tandai lunas"}
+          </Button>
         </div>
       </section>
     </div>
@@ -51,9 +92,11 @@ export function PaymentConfirmationDialog({
 }
 
 export function PaymentMethodSelector({
+  enabledMethods,
   onChange,
   value,
 }: {
+  enabledMethods: PaymentMethod[];
   onChange: (method: PaymentMethod) => void;
   value: PaymentMethod | null;
 }) {
@@ -68,22 +111,24 @@ export function PaymentMethodSelector({
             ["tunai", "Tunai"],
             ["qris", "QRIS"],
           ] as const
-        ).map(([method, label]) => (
-          <label
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink"
-            key={method}
-          >
-            <input
-              checked={value === method}
-              className="size-4 accent-ink"
-              name="payment-method"
-              onChange={() => onChange(method)}
-              type="radio"
-              value={method}
-            />
-            {label}
-          </label>
-        ))}
+        )
+          .filter(([method]) => enabledMethods.includes(method))
+          .map(([method, label]) => (
+            <label
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm text-ink"
+              key={method}
+            >
+              <input
+                checked={value === method}
+                className="size-4 accent-ink"
+                name="payment-method"
+                onChange={() => onChange(method)}
+                type="radio"
+                value={method}
+              />
+              {label}
+            </label>
+          ))}
       </div>
     </fieldset>
   );
